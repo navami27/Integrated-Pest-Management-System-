@@ -101,19 +101,7 @@ pip install -r requirements.txt
 
 -----
 
-## 🧪 Scientific Validation & Methodology
 
-To ensure the simulation is realistic, this project uses **"Super-Individual Modeling"** (Scheffer et al., 1995) to handle computational constraints.
-
-| Parameter | Value | Scientific Basis |
-| :--- | :--- | :--- |
-| **Simulation Unit** | 20 Acres | Represents a standard Commercial FPO Cluster in India. |
-| **Grid Resolution** | 40x40 Cells | **Abstract Scaling:** 1 Cell $\approx$ 50 Plants ($25m^2$). |
-| **Agent Ratio** | 1:500 | **Super-Individual:** 1 Agent represents a high-density cluster of \~500 pests. |
-| **Damage Logic** | 25% / Step | Simulates systemic **Viral Shock (TSWV)** rather than just leaf feeding (Ref: *IJISRT, 2023*). |
-| **Outbreak Trigger** | 25-32°C, \<65% RH | Optimal breeding conditions for *Thrips tabaci* (Ref: *Kagezi et al., 2001*). |
-
------
 
 ## 📂 Project Structure
 
@@ -129,6 +117,3 @@ pest_simulation/
 └── requirements.txt    # Project dependencies
 ```
 
-
-**Developed by:** [Your Name]
-**Contact:** [Your Email]
