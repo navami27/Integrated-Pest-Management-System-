@@ -8,11 +8,13 @@ class TomatoModel(mesa.Model):
     def __init__(self, farm_size_acres=50, trap_crop_ratio=0.2, layout="intercropping", lat=12.97, lon=77.59, scenario="Real Data"):
         super().__init__()
         
-        # Scaling
-        scale_factor = 3 if farm_size_acres > 50 else 1.5
-        side_length = min(40, int((farm_size_acres * scale_factor) ** 0.5) + 10)
-        self.width = side_length
-        self.height = side_length
+        # --- FIXED GRID ARCHITECTURE ---
+        # We lock the resolution to 40x40 for consistent visualization and performance.
+        # This means 1 Cell represents a variable number of plants depending on farm size.
+        # (See app.py sidebar for the real-time math display).
+        self.width = 40
+        self.height = 40
+        
         self.grid = mesa.space.MultiGrid(self.width, self.height, torus=False)
         self.schedule = mesa.time.RandomActivation(self)
         
@@ -29,6 +31,7 @@ class TomatoModel(mesa.Model):
         
         # Weather Setup
         if scenario == "Force Outbreak":
+            # Synthetic "Ideal Pest Weather" (Hot & Dry)
             self.weather_history = [{'temp': 29, 'humidity': 55, 'rain': False} for _ in range(50)]
         else:
             self.fetch_weather_data(lat, lon)
@@ -41,8 +44,6 @@ class TomatoModel(mesa.Model):
         # Setup Farm
         self.generate_layout(layout, trap_crop_ratio)
         self.initialize_pests()
-        
-        # Initial Safe State Capture
         self.capture_safe_state()
 
         self.datacollector = mesa.DataCollector(
@@ -63,19 +64,18 @@ class TomatoModel(mesa.Model):
         self.last_safe_state = snapshot
 
     def calculate_yield_loss(self):
-        """Calculates total yield loss based on Tomato Health."""
+        """
+        Calculates total yield loss based on Tomato Health.
+        Iterates over physical grid to ensure stationary plants are counted.
+        """
         total_potential = 0
         current_health = 0
-        
-        # FIX: Loop through the Grid (Spatial), not the Schedule (Time)
-        # This finds the plants even though they are "sleeping" agents
         for content, (x, y) in self.grid.coord_iter():
             for agent in content:
                 if isinstance(agent, TomatoAgent):
                     total_potential += 100
                     current_health += agent.health
         
-        # Calculate Percentage
         if total_potential > 0:
             loss = total_potential - current_health
             self.yield_loss_pct = (loss / total_potential) * 100
@@ -84,6 +84,7 @@ class TomatoModel(mesa.Model):
 
     def fetch_weather_data(self, lat, lon):
         try:
+            # Fetching Relative Humidity Min (Afternoon) as it affects thrips most
             url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,relative_humidity_2m_min,rain_sum&timezone=auto"
             response = requests.get(url, timeout=5).json()
             if 'daily' in response:
@@ -91,14 +92,14 @@ class TomatoModel(mesa.Model):
                 for i in range(len(daily['time'])):
                     self.weather_history.append({
                         'temp': daily['temperature_2m_max'][i],
-                        # Use Min Humidity for afternoon pest activity
-                        'humidity': daily['relative_humidity_2m_min'][i], 
+                        'humidity': daily['relative_humidity_2m_min'][i],
                         'rain': daily['rain_sum'][i] > 1.0
                     })
         except Exception as e:
             print(f"API Error: {e}")
 
     def extend_weather_data(self, days_needed):
+        """Generates realistic random weather for days beyond the API forecast."""
         current_len = len(self.weather_history)
         if current_len == 0: 
             last_temp, last_hum = 28, 50
@@ -109,6 +110,7 @@ class TomatoModel(mesa.Model):
         for _ in range(days_needed - current_len):
             last_temp += random.uniform(-1.5, 1.5)
             last_hum += random.uniform(-5, 5)
+            # Clamp to realistic semi-arid values
             last_temp = max(15, min(38, last_temp))
             last_hum = max(20, min(95, last_hum))
             rain = random.random() < 0.1
@@ -119,9 +121,11 @@ class TomatoModel(mesa.Model):
             for y in range(self.height):
                 is_trap = False
                 if layout == "intercropping":
+                    # Simple modulo logic for rows
                     freq = int(1/ratio) if ratio > 0 else 100
                     if y % freq == 0: is_trap = True
                 elif layout == "perimeter":
+                    # Outer boundary
                     if x < 2 or x >= self.width-2 or y < 2 or y >= self.height-2: is_trap = True
                 
                 a = MarigoldAgent(self) if is_trap else TomatoAgent(self)
@@ -133,6 +137,7 @@ class TomatoModel(mesa.Model):
         for x in range(self.width):
             for y in range(self.height):
                 dist = np.sqrt((x - center_x)**2 + (y - center_y)**2)
+                # Edge Effect: Probability increases as we move away from center
                 spawn_prob = 0.08 * (dist / max_dist)
                 if random.random() < spawn_prob:
                     pest = ThripAgent(self)
@@ -146,21 +151,17 @@ class TomatoModel(mesa.Model):
         temp = self.current_weather['temp']
         rh = self.current_weather['humidity']
         
-        # Outbreak Logic
+        # Biological Rule: Outbreak if 25-32C and Dry (<65%)
         if 25 <= temp <= 32 and rh < 65:
             self.optimal_weather_streak += 1
             self.outbreak_cause = f"Opt. Temp ({temp}°C) & Dry Air ({rh}%)"
         else:
             self.optimal_weather_streak = 0
-            # If we were safe, capture state
             if not self.is_outbreak_mode:
                 self.capture_safe_state()
             
         self.is_outbreak_mode = (self.optimal_weather_streak >= 2)
-        
-        # Update Yield Stats
         self.calculate_yield_loss()
-        
         self.datacollector.collect(self)
         self.schedule.step()
         self.current_step_tracker += 1
