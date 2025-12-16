@@ -1,5 +1,6 @@
+---
 
-#🍅 AgriTwin: Neuro-Symbolic Pest Management Digital Twin**AgriTwin** is an advanced decision support system designed for large commercial tomato farms and Farmer Producer Organizations (FPOs). It integrates **Agent-Based Modeling (ABM)** with **Generative AI** to predict, visualize, and manage pest outbreaks (*Thrips tabaci*) based on hyperlocal weather conditions.
+🍅 AgriTwin: Neuro-Symbolic Pest Management Digital Twin**AgriTwin** is an advanced decision support system designed for large commercial tomato farms and Farmer Producer Organizations (FPOs). It integrates **Agent-Based Modeling (ABM)** with **Generative AI** to predict, visualize, and manage pest outbreaks (*Thrips tabaci*) based on hyperlocal weather conditions.
 
 Unlike traditional reactive tools, this project uses a **Neuro-Symbolic Architecture**: combining the mathematical rigor of biological simulation (Symbolic) with the reasoning capabilities of Large Language Models (Neural).
 
